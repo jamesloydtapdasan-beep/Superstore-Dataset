@@ -1,179 +1,193 @@
-# Sample Superstore — Sales & Profitability Analytics Project
+# Superstore Insights: Sales & Profitability Analytics
 
-End-to-end data analytics project: data cleaning, SQL database design, exploratory data analysis, an Excel executive dashboard, and business recommendations for a U.S. retail sales dataset.
+An end-to-end analytics project on the *Sample Superstore* retail dataset. It covers data cleaning, a normalized SQL schema, exploratory analysis in Python, a formula-driven Excel dashboard, an interactive HTML dashboard, and pricing recommendations. It answers one question: **where does this retailer make money, and where do discounts destroy it?**
 
-## Project Overview
+> Featured in my portfolio as **Superstore Insights** (Analytics, 2026).
 
-This project analyzes 9,994 order line items from the well-known *Sample Superstore* retail dataset, covering sales, profit, discount, and quantity across product categories, customer segments, shipping modes, and U.S. geography. It was built as a portfolio-ready demonstration of the full analytics workflow: data quality assessment → cleaning → normalized SQL schema → EDA → dashboarding → business recommendations.
+---
 
-**A note on scope:** the source extract is a flat transaction export with **no order date, customer ID, seller, or payment fields**. Rather than inventing those fields, every deliverable here (SQL schema, queries, dashboard, notebook) is scoped to what the data actually supports: category, sub-category, region/state/city, segment, ship mode, discount, and profitability analysis.
+## Headline Results
+
+| Metric | Value |
+|---|---|
+| Order lines analyzed | 9,977 (9,994 raw, 17 duplicates removed) |
+| Revenue | $2.30M |
+| Profit | $286K |
+| Overall margin | 12.5% |
+| Loss-making order lines | about 19% |
+
+**The main finding:** revenue alone is misleading. Furniture brings in $741K but keeps only a 2.5% margin, while Technology and Office Supplies earn about 17%. Average profit per order turns negative once discounts pass about 20%.
+
+---
 
 ## Business Problem
 
-A retail analytics team wants to know **where the business makes money and where it loses money** — which categories/regions/segments to invest in, and where discounting is destroying margin — in order to make pricing and merchandising decisions.
+A retail analytics team could not see which categories, regions, and segments were profitable, or where heavy discounting was turning sales into losses. This project builds that view and turns it into pricing and merchandising decisions.
 
-## Dataset Description
+## Dataset
 
 | Property | Value |
 |---|---|
 | Rows (raw / cleaned) | 9,994 / 9,977 |
-| Columns | 13 raw → 17 after cleaning + feature engineering |
+| Columns | 13 raw, 17 after cleaning and feature engineering |
 | Grain | One row per order line item |
 | Geography | United States, 49 states, 531 cities |
 
 **Raw columns:** Ship Mode, Segment, Country, City, State, Postal Code, Region, Category, Sub-Category, Sales, Quantity, Discount, Profit.
 
-See [`Data/data_dictionary.md`](Data/data_dictionary.md) for full column definitions.
+**Scope note:** the source extract has no order date, customer ID, seller, or payment fields. Rather than inventing them, every deliverable here is scoped to what the data supports: category, sub-category, geography, segment, ship mode, discount, and profitability.
 
-## Project Architecture
+---
 
-```
-Raw CSV → Cleaning (pandas) → Cleaned CSV → SQL schema/load/queries
-                                          → Excel dashboard (openpyxl)
-                                          → Jupyter EDA notebook
-                                          → PNG visualizations
-```
-
-## Folder Structure
+## Repository Structure
 
 ```
-Project/
+Superstore-Dataset/
 ├── Data/
-│   ├── Raw/superstore_raw.csv
-│   ├── Cleaned/superstore_clean.csv
-│   ├── clean_data.py
-│   ├── build_dashboard.py
-│   ├── data_dictionary.md
-│   └── Dashboard_Clean_Data.xlsx
-├── SQL/
-│   ├── create_tables.sql
-│   ├── import_data.sql
-│   └── analysis_queries.sql
-├── Notebook/
-│   └── analysis.ipynb
-├── Visualizations/
-│   ├── generate_charts.py
-│   ├── Sales/  Profit/  Category/  Geography/  Segment/
+│   ├── Raw/
+│   │   └── SampleSuperstore.csv.xlsx            # original extract
+│   ├── Clean/
+│   │   └── Clean.xlsx                           # cleaned + engineered dataset
+│   └── Excel Analytics and Dashboard/
+│       └── Dashboard_Clean_Data.xlsx            # 8-sheet Excel dashboard
+├── Sql/
+│   ├── create_tables.sql                        # normalized schema (PostgreSQL)
+│   ├── import_data.sql                          # staging load + dimension/fact population
+│   └── analysis_queries.sql                     # 15 analysis queries
+├── Notebooks/
+│   └── Superstore analysis.ipynb                # cleaning, EDA, findings
+├── Visualizations/                              # 10 PNG charts
 ├── Dashboard/
-│   └── Dashboard_Screenshots/
-├── README.md
-├── requirements.txt
-└── LICENSE
+│   └── Superstore_Dashboard.html                # interactive HTML dashboard
+└── README.md
 ```
 
-## Data Cleaning Process
+---
 
+## Workflow
+
+```
+Raw data → Cleaning (pandas) → Clean.xlsx ─┬→ SQL schema + queries
+                                           ├→ Excel dashboard
+                                           ├→ Jupyter EDA notebook
+                                           └→ PNG charts + HTML dashboard
+```
+
+### 1. Data cleaning
 1. Standardized column names to `snake_case`.
 2. Removed **17 exact duplicate rows**.
-3. Cast `postal_code` to a zero-padded string (raw integer type stripped leading zeros on New England ZIPs).
-4. Rounded monetary fields to 2 decimals; trimmed whitespace on text fields.
-5. Validated `discount` ∈ [0,1] and `quantity` > 0 — none invalid.
-6. Flagged (not removed) statistical outliers in `sales`/`profit` via IQR — they represent real bulk/high-discount transactions, not data errors.
-7. Engineered `profit_margin`, `unit_price`, `is_loss_making`.
-8. Added a surrogate `record_id` primary key (source has none).
+3. Stored `postal_code` as a zero-padded string, since the integer type stripped leading zeros on New England ZIPs.
+4. Rounded money fields to 2 decimals and trimmed whitespace.
+5. Validated `discount` in [0, 1] and `quantity` > 0. No invalid values were found.
+6. Flagged, but did not remove, IQR outliers in `sales` and `profit`. They are real bulk or high-discount transactions, not errors.
+7. Engineered `profit_margin`, `unit_price`, and `is_loss_making`, and added a surrogate `record_id`.
 
-Full logic: [`Data/clean_data.py`](Data/clean_data.py).
+### 2. SQL database
+A normalized schema built around the dimensions the data supports: `dim_location`, `dim_product`, `dim_ship_mode`, `dim_segment`, and a `fact_sales` table. `analysis_queries.sql` covers sales, product, segment, shipping, discount, and KPI analysis, including discount bands vs. profit and loss-making orders by category.
 
-## SQL Database Design
+### 3. Exploratory analysis
+The notebook walks through data quality checks, descriptive statistics, correlations, category and sub-category performance, loss-making products, discount vs. profitability, geography, and segment and shipping analysis.
 
-A normalized schema built around the dimensions the data supports: `dim_location`, `dim_product`, `dim_ship_mode`, `dim_segment`, and a `fact_sales` fact table (PostgreSQL syntax). See [`SQL/create_tables.sql`](SQL/create_tables.sql), [`SQL/import_data.sql`](SQL/import_data.sql), and 20+ analysis queries in [`SQL/analysis_queries.sql`](SQL/analysis_queries.sql).
+### 4. Excel dashboard
+`Dashboard_Clean_Data.xlsx` has 8 sheets: Executive Dashboard, Revenue Analysis, Segment Analysis, Product Analysis, Shipping Analysis, Discount Analysis, Raw Data, and Clean Data.
 
-## Exploratory Data Analysis
+### 5. HTML dashboard
+`Dashboard/Superstore_Dashboard.html` is a self-contained interactive dashboard. Blue marks healthy profit and orange marks loss or risk. Open it directly in a browser.
 
-Full EDA — descriptive stats, correlation analysis, category/geography/segment breakdowns, and a discount-vs-profitability study — lives in [`Notebook/analysis.ipynb`](Notebook/analysis.ipynb).
-
-## Excel Dashboard
-
-[`Data/Dashboard_Clean_Data.xlsx`](Data/Dashboard_Clean_Data.xlsx) — 8 sheets, fully formula-driven (SUMIF/COUNTIF/AVERAGEIF off the Clean Data table, zero hardcoded results):
-
-- **Executive Dashboard** — 6 KPI cards + category, region, sub-category, and ship-mode charts
-- **Revenue Analysis** — top 15 states by revenue/profit
-- **Segment Analysis** — Consumer/Corporate/Home Office performance
-- **Product Analysis** — sub-category revenue, profit, margin
-- **Shipping Analysis** — ship-mode revenue and margin
-- **Discount Analysis** — discount-band profitability
-- **Raw Data** / **Clean Data** — full source and cleaned datasets (Clean Data is an Excel Table for filtering)
-
-> Note: openpyxl cannot create true interactive native Excel PivotTables/Slicers programmatically (Excel itself builds the pivot cache). Formula-driven summary tables + native charts were used instead — functionally equivalent and fully live/recalculating, per best practice of never hardcoding computed results.
-
-## Visualizations
-
-10 charts (category, profit, geography, segment, correlation) generated via `Visualizations/generate_charts.py`, saved under `Visualizations/*/`.
+---
 
 ## Key Findings
 
-1. Overall margin is **12.5%** on **$2.30M** revenue across 9,977 order lines.
-2. **Technology** has the strongest profit margin; **Furniture** the weakest despite strong revenue.
-3. **Tables and Bookcases** are net loss-making sub-categories overall.
-4. Average profit per order turns negative once discount exceeds **~20%**.
-5. Discount level has almost no correlation with sales volume (r≈-0.03).
-6. **Consumer** segment leads revenue but has a slightly lower margin than Home Office.
-7. **West and East** regions outperform South and Central.
-8. Revenue is geographically concentrated in a handful of top states.
-9. **Standard Class** dominates shipping mode by order count.
-10. ~19% of order lines are loss-making, concentrated in high-discount Furniture.
+**By category**
+
+| Category | Revenue | Profit | Margin |
+|---|---|---|---|
+| Technology | $836K | $145K | 17.4% |
+| Office Supplies | $719K | $122K | 17.0% |
+| Furniture | $741K | $18K | 2.5% |
+
+**Where the losses are**
+- **Tables** lose $17.7K (-8.6% margin) and **Bookcases** lose $3.5K, and both are net loss-making. **Supplies** also loses money (-$1.2K).
+- Discounts above 20% push average profit per order negative:
+
+| Discount band | Avg profit per order |
+|---|---|
+| None | +$67.02 |
+| 10-20% | +$24.76 |
+| 20-30% | -$45.83 |
+| 30-40% | -$109.22 |
+| 40-50% | -$298.70 |
+
+- Discount has almost no correlation with sales volume (r = -0.03), but a negative one with profit (r = -0.22).
+
+**Geography**
+- **West** (14.9% margin) and **East** (13.5%) lead. **Central** is weakest at 7.9%.
+- California ($458K) and New York ($311K) are the top states by revenue. Several large states lose money despite high revenue: **Texas (-$25.8K)**, **Ohio (-$17.0K)**, **Pennsylvania (-$15.6K)**, and **Illinois (-$12.6K)**.
+
+**Segment and shipping**
+- **Consumer** leads revenue ($1.16M) but has the lowest margin (11.5%). **Home Office** has the highest (14.0%).
+- **Standard Class** handles most orders (5,955 of 9,977).
+
+---
+
+## Visualizations
+
+| | |
+|---|---|
+| ![Revenue by category](Visualizations/revenue_by_category.png) | ![Profit by sub-category](Visualizations/profit_by_subcategory.png) |
+| ![Discount vs avg profit](Visualizations/discount_vs_avg_profit.png) | ![Top 10 states](Visualizations/top10_states.png) |
+| ![Revenue by segment](Visualizations/revenue_by_segment.png) | ![Revenue by region](Visualizations/revenue_by_region_pie.png) |
+| ![Sales vs profit](Visualizations/sales_vs_profit_scatter.png) | ![Profit by category](Visualizations/profit_boxplot_by_category.png) |
+| ![Orders by ship mode](Visualizations/orders_by_ship_mode.png) | ![Correlation heatmap](Visualizations/correlation_heatmap.png) |
+
+---
 
 ## Business Recommendations
 
-1. Cap Furniture discounts around 20% pending a pricing review.
-2. Re-price or discontinue chronically loss-making Tables/Bookcases SKUs.
-3. Shift promotional budget toward Technology and Office Supplies.
-4. Test bundling instead of blanket discounting to lift volume without killing margin.
-5. Increase marketing investment in top-performing states/regions.
-6. Run a targeted campaign to close the South/Central revenue gap.
-7. Evaluate growing the higher-margin Home Office segment.
-8. Require manager approval for discounts above ~30%.
-9. Collect shipping-cost data to evaluate ship-mode profitability, not just order count.
-10. Prioritize collecting timestamped transaction data to enable future trend/seasonality/retention analysis.
+1. Cap Furniture discounts at around 20% pending a pricing review.
+2. Re-price or drop chronically loss-making Tables and Bookcases.
+3. Require manager approval for discounts above about 30%.
+4. Shift promotional budget toward Technology and Office Supplies.
+5. Investigate why Texas, Ohio, Pennsylvania, and Illinois lose money despite high revenue.
+6. Test bundling instead of blanket discounting to lift volume without losing margin.
+7. Close the Central and South revenue gap with targeted campaigns.
+8. Collect shipping-cost data so ship modes can be judged on profit, not order count.
+9. Capture timestamped transactions to enable trend and seasonality analysis.
 
-## Technologies Used
+---
 
-- **Python**: pandas, numpy, matplotlib, seaborn
-- **Excel**: openpyxl (formulas, native charts, tables)
-- **SQL**: PostgreSQL syntax
-- **Jupyter Notebook**
+## Tech Stack
 
-## Installation Guide
-
-```bash
-git clone <repo-url>
-cd Project
-pip install -r requirements.txt
-```
+- **Python:** pandas, numpy, matplotlib, seaborn, Jupyter
+- **SQL:** PostgreSQL syntax
+- **Excel:** formula-driven dashboard (SUMIF, COUNTIF, AVERAGEIF)
+- **HTML/CSS/JS:** interactive dashboard
 
 ## How to Run
 
 ```bash
-# 1. Clean the data
-cd Data && python clean_data.py
-
-# 2. Build the Excel dashboard
-python build_dashboard.py
-
-# 3. Generate visualizations
-cd ../Visualizations && python generate_charts.py
-
-# 4. Open the notebook
-jupyter notebook ../Notebook/analysis.ipynb
-
-# 5. Load into PostgreSQL (optional)
-psql -f ../SQL/create_tables.sql
-psql -f ../SQL/import_data.sql
-psql -f ../SQL/analysis_queries.sql
+git clone https://github.com/jamesloydtapdasan-beep/Superstore-Dataset.git
+cd Superstore-Dataset
+pip install pandas numpy matplotlib seaborn jupyter openpyxl
+jupyter notebook "Notebooks/Superstore analysis.ipynb"
 ```
 
-## Future Improvements
+- **Dashboard:** open `Dashboard/Superstore_Dashboard.html` in any browser.
+- **Excel:** open `Data/Excel Analytics and Dashboard/Dashboard_Clean_Data.xlsx`.
+- **SQL (optional):** export `Data/Clean/Clean.xlsx` to CSV at `Data/Cleaned/superstore_clean.csv` (the path `import_data.sql` expects), then run:
 
-- Add timestamped order data to enable trend/seasonality analysis.
-- Add customer-level IDs to support retention and CLV analysis.
-- Add cost/shipping data to properly evaluate ship-mode profitability.
-- Convert formula-driven Excel summaries to true native PivotTables via an Excel/VBA post-processing step.
-- Build a live Power BI / Tableau dashboard on top of the normalized SQL schema.
+```bash
+psql -f Sql/create_tables.sql
+psql -f Sql/import_data.sql
+psql -f Sql/analysis_queries.sql
+```
 
-## Dashboard Screenshots
+## Limitations and Future Work
 
-_Add exported screenshots of the Excel dashboard here: `Dashboard/Dashboard_Screenshots/`._
+- No dates or customer IDs, so there is no trend, seasonality, or retention analysis yet.
+- No shipping cost, so ship-mode profitability cannot be assessed.
+- Planned: add timestamped orders, build a live Power BI or Tableau dashboard on the SQL schema, and convert the Excel summaries to native PivotTables.
 
 ## Author
 
-JL — CS student, Cebu Technological University Naga Extension Campus. Capstone/portfolio project.
+**JL**, CS student at Cebu Technological University, Naga Extension Campus. Built as a portfolio and capstone-style analytics project.
